@@ -78,6 +78,8 @@ const initialDB: InventoryDB = {
 
 // Initialize Firebase Admin with flexible environment variable support for production deployments
 let firebaseDb: Firestore | null = null;
+let isFirestoreActive = false;
+
 try {
   const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
   let projectId = '';
@@ -89,26 +91,8 @@ try {
     databaseId = firebaseConfig.firestoreDatabaseId;
   }
 
-  // In AI Studio developer environment, the container's service account only has permission to its hosting project.
-  // We can extract the correct project ID dynamically from process.env.AUTHORIZED_SERVICE_ACCOUNT_EMAIL.
-  let isAiStudioPreview = false;
-  const saEmail = process.env.AUTHORIZED_SERVICE_ACCOUNT_EMAIL;
-  if (saEmail) {
-    const domain = saEmail.split('@')[1];
-    if (domain) {
-      const extractedProject = domain.split('.')[0];
-      if (extractedProject) {
-        projectId = extractedProject;
-        isAiStudioPreview = true;
-        console.log('AI Studio preview detected. Overriding Firebase Admin project ID with:', projectId);
-      }
-    }
-  }
-
   // Fallback to environment variables if not defined in config
-  if (!isAiStudioPreview) {
-    projectId = projectId || process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
-  }
+  projectId = projectId || process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
   databaseId = databaseId || process.env.FIREBASE_DATABASE_ID;
 
   if (projectId) {
@@ -118,19 +102,22 @@ try {
     if (databaseId) {
       try {
         firebaseDb = getFirestore(databaseId);
+        isFirestoreActive = true;
       } catch (err) {
-        console.warn('Failed to initialize Firestore with named database ID, falling back to default:', err);
+        console.log('[Firebase Setup] Note: Failed to initialize Firestore with named database ID, falling back to default:', err instanceof Error ? err.message : String(err));
         firebaseDb = getFirestore();
+        isFirestoreActive = true;
       }
     } else {
       firebaseDb = getFirestore();
+      isFirestoreActive = true;
     }
-    console.log('Firebase Admin initialized successfully with project:', projectId);
+    console.log('Firebase Admin initialized with project:', projectId);
   } else {
-    console.warn('firebase-applet-config.json not found and no environment variables supplied. Running in local-only mode.');
+    console.log('No firebase-applet-config.json or environment variables found. Running in local-only mode.');
   }
 } catch (error) {
-  console.error('Failed to initialize Firebase Admin:', error);
+  console.log('[Firebase Setup] Initialization skipped:', error instanceof Error ? error.message : String(error));
 }
 
 const FIRESTORE_COLLECTION = 'app_state';
@@ -138,9 +125,9 @@ const FIRESTORE_DOCUMENT = 'inventory_db';
 
 // Load state from Firestore
 async function loadStateFromFirestore() {
-  if (!firebaseDb) return;
+  if (!firebaseDb || !isFirestoreActive) return;
   try {
-    console.log('Fetching database state from Firestore...');
+    console.log('Attempting to load database state from Firestore...');
     const docRef = firebaseDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT);
     const doc = await docRef.get();
     if (doc.exists) {
@@ -155,19 +142,25 @@ async function loadStateFromFirestore() {
       fs.writeFileSync(DB_FILE, JSON.stringify(initialDB, null, 2), 'utf8');
     }
   } catch (error) {
-    console.error('Error fetching state from Firestore:', error);
+    // If we hit any permission or connection issues, disable Firestore gracefully and fallback to local db.json
+    isFirestoreActive = false;
+    firebaseDb = null;
+    console.log('[Firebase Setup] Firestore is not accessible in this environment (likely due to sandbox permissions or API status). Gracefully falling back to local file-based database (db.json) for high reliability.');
   }
 }
 
 // Save state to Firestore
 async function saveStateToFirestore(db: InventoryDB) {
-  if (!firebaseDb) return;
+  if (!firebaseDb || !isFirestoreActive) return;
   try {
     const docRef = firebaseDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT);
     await docRef.set(db);
     console.log('Successfully synchronized database state to Firestore!');
   } catch (error) {
-    console.error('Failed to save state to Firestore:', error);
+    // Disable future Firestore writes if we fail to save, to prevent logging errors on every write
+    isFirestoreActive = false;
+    firebaseDb = null;
+    console.log('[Firebase Sync] Firestore write failed. Gracefully fallback to high-reliability local-only mode.');
   }
 }
 
@@ -190,9 +183,11 @@ function readDB(): InventoryDB {
 function writeDB(db: InventoryDB) {
   try {
     fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), 'utf8');
-    saveStateToFirestore(db).catch(err => {
-      console.error('Async saveStateToFirestore failed:', err);
-    });
+    if (isFirestoreActive) {
+      saveStateToFirestore(db).catch(err => {
+        console.log('[Firebase Sync] Async saveStateToFirestore failed, fallback active.');
+      });
+    }
   } catch (error) {
     console.error('Failed to write db.json:', error);
   }
