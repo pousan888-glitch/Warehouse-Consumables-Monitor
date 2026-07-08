@@ -11,6 +11,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { getAnalytics, isSupported } from 'firebase/analytics';
 import firebaseAppletConfig from '../firebase-applet-config.json';
 import { InventoryDB, User, UserRole } from './types.js';
 import { apiFetch } from './apiFallback.js';
@@ -41,6 +42,8 @@ const firebaseConfig = {
   messagingSenderId: sanitizeEnv(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID) || firebaseAppletConfig.messagingSenderId,
   // @ts-ignore
   appId: sanitizeEnv(import.meta.env.VITE_FIREBASE_APP_ID) || firebaseAppletConfig.appId,
+  // @ts-ignore
+  measurementId: sanitizeEnv(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID) || firebaseAppletConfig.measurementId,
 };
 
 console.log('Initializing Firebase Client with Project ID:', firebaseConfig.projectId);
@@ -52,6 +55,15 @@ if (firebaseConfig.apiKey && firebaseConfig.apiKey.length > 8) {
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const googleProvider = new GoogleAuthProvider();
+
+// Safely initialize analytics in environments supporting it (like browser/production runtime)
+if (typeof window !== 'undefined') {
+  isSupported().then((supported) => {
+    if (supported && firebaseConfig.measurementId) {
+      getAnalytics(firebaseApp);
+    }
+  }).catch(() => {});
+}
 
 export default function App() {
   const [db, setDb] = useState<InventoryDB | null>(null);

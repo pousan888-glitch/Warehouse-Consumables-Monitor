@@ -89,8 +89,26 @@ try {
     databaseId = firebaseConfig.firestoreDatabaseId;
   }
 
+  // In AI Studio developer environment, the container's service account only has permission to its hosting project.
+  // We can extract the correct project ID dynamically from process.env.AUTHORIZED_SERVICE_ACCOUNT_EMAIL.
+  let isAiStudioPreview = false;
+  const saEmail = process.env.AUTHORIZED_SERVICE_ACCOUNT_EMAIL;
+  if (saEmail) {
+    const domain = saEmail.split('@')[1];
+    if (domain) {
+      const extractedProject = domain.split('.')[0];
+      if (extractedProject) {
+        projectId = extractedProject;
+        isAiStudioPreview = true;
+        console.log('AI Studio preview detected. Overriding Firebase Admin project ID with:', projectId);
+      }
+    }
+  }
+
   // Fallback to environment variables if not defined in config
-  projectId = projectId || process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
+  if (!isAiStudioPreview) {
+    projectId = projectId || process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
+  }
   databaseId = databaseId || process.env.FIREBASE_DATABASE_ID;
 
   if (projectId) {

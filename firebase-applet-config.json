@@ -1,10 +1,10 @@
 {
   "projectId": "warehouse-consumables-monitor",
-  "appId": "1:917732792556:web:664cb38d5d7fea8468edc9",
+  "appId": "1:917732792556:web:bf74faa9940babf768edc9",
   "apiKey": "AIzaSyAQO0gBpkiASG1NhdUJfQA25R7kUgUzRUQ",
   "authDomain": "warehouse-consumables-monitor.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-warehouseconsuma-96ec1942-bc66-49eb-9642-8879f13bbcda",
   "storageBucket": "warehouse-consumables-monitor.firebasestorage.app",
   "messagingSenderId": "917732792556",
-  "measurementId": ""
+  "measurementId": "G-R3G976E9TN"
 }
