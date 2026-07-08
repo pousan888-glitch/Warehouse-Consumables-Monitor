@@ -20,14 +20,25 @@ import HelperCount from './components/HelperCount.js';
 import QCConsumption from './components/QCConsumption.js';
 import RoleSwitcher from './components/RoleSwitcher.js';
 
-// Initialize Firebase client directly using the configuration file
+// Initialize Firebase client with dynamic environment variable fallback for production hosting (Vercel)
+const sanitizeEnv = (val: any): string => {
+  if (!val || typeof val !== 'string') return '';
+  return val.trim().replace(/^["']|["']$/g, '').trim();
+};
+
 const firebaseConfig = {
-  apiKey: firebaseAppletConfig.apiKey,
-  authDomain: firebaseAppletConfig.authDomain,
-  projectId: firebaseAppletConfig.projectId,
-  storageBucket: firebaseAppletConfig.storageBucket,
-  messagingSenderId: firebaseAppletConfig.messagingSenderId,
-  appId: firebaseAppletConfig.appId,
+  // @ts-ignore
+  apiKey: sanitizeEnv(import.meta.env.VITE_FIREBASE_API_KEY) || firebaseAppletConfig.apiKey,
+  // @ts-ignore
+  authDomain: sanitizeEnv(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN) || firebaseAppletConfig.authDomain,
+  // @ts-ignore
+  projectId: sanitizeEnv(import.meta.env.VITE_FIREBASE_PROJECT_ID) || firebaseAppletConfig.projectId,
+  // @ts-ignore
+  storageBucket: sanitizeEnv(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET) || firebaseAppletConfig.storageBucket,
+  // @ts-ignore
+  messagingSenderId: sanitizeEnv(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID) || firebaseAppletConfig.messagingSenderId,
+  // @ts-ignore
+  appId: sanitizeEnv(import.meta.env.VITE_FIREBASE_APP_ID) || firebaseAppletConfig.appId,
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
