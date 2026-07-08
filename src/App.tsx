@@ -23,7 +23,9 @@ import RoleSwitcher from './components/RoleSwitcher.js';
 // Initialize Firebase client with dynamic environment variable fallback for production hosting (Vercel)
 const sanitizeEnv = (val: any): string => {
   if (!val || typeof val !== 'string') return '';
-  return val.trim().replace(/^["']|["']$/g, '').trim();
+  const trimmed = val.trim().replace(/^["']|["']$/g, '').trim();
+  if (trimmed === 'undefined' || trimmed === 'null' || trimmed === '') return '';
+  return trimmed;
 };
 
 const firebaseConfig = {
@@ -40,6 +42,12 @@ const firebaseConfig = {
   // @ts-ignore
   appId: sanitizeEnv(import.meta.env.VITE_FIREBASE_APP_ID) || firebaseAppletConfig.appId,
 };
+
+console.log('Initializing Firebase Client with Project ID:', firebaseConfig.projectId);
+console.log('Firebase API Key length:', firebaseConfig.apiKey ? firebaseConfig.apiKey.length : 0);
+if (firebaseConfig.apiKey && firebaseConfig.apiKey.length > 8) {
+  console.log('Firebase API Key starts with:', firebaseConfig.apiKey.substring(0, 6) + '...');
+}
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
